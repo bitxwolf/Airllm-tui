@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.log
+*.bin
+.DS_Store
+Thumbs.db
+.env
+.airllm-tui/
+.agents/

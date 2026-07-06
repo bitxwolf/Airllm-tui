@@ -1,0 +1,15 @@
+.git
+.github
+node_modules
+src/
+tests/
+*.log
+.venv
+__pycache__
+*.pyc
+.DS_Store
+Thumbs.db
+test-10m.bin
+ORIGINAL_REQUEST.md
+.agents
+.gitignore

@@ -1,0 +1,41 @@
+{
+  "name": "airllm-tui",
+  "version": "1.0.0",
+  "description": "Run massive open-source LLMs in a terminal dashboard using layer-swapping inference",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AirLLM/airllm-tui"
+  },
+  "homepage": "https://github.com/AirLLM/airllm-tui#readme",
+  "bugs": "https://github.com/AirLLM/airllm-tui/issues",
+  "author": "AirLLM TUI Contributors",
+  "license": "MIT",
+  "keywords": ["llm", "terminal", "tui", "airllm", "gpu", "inference", "ai", "cli"],
+  "files": ["bin/", "dist/", "python/", "README.md", "LICENSE"],
+  "type": "module",
+  "bin": {
+    "airllm-tui": "./bin/airllm-tui.js"
+  },
+  "scripts": {
+    "build": "babel src --out-dir dist --extensions .jsx,.js --out-file-extension .js",
+    "prepublishOnly": "npm run build",
+    "start": "npm run build && node bin/airllm-tui.js",
+    "test:engine": "npm run build && node tests/test_engine.js"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "figures": "^6.0.0",
+    "ink": "^5.0.1",
+    "ink-progress-bar": "^3.0.0",
+    "ink-spinner": "^5.0.0",
+    "react": "^18.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@babel/cli": "^8.0.1",
+    "@babel/core": "^8.0.1",
+    "@babel/preset-react": "^8.0.1"
+  }
+}
