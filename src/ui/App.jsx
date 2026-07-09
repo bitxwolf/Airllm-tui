@@ -1,15 +1,22 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
 import { useEngine } from './hooks/useEngine.js';
 import { useTelemetry } from './hooks/useTelemetry.js';
 import { useHistory } from './hooks/useHistory.js';
+import { useMemory } from './hooks/useMemory.js';
 import { ChatPane } from './components/ChatPane.js';
 import { InputBar } from './components/InputBar.js';
 import { TelemetryPane } from './components/TelemetryPane.js';
 import { ParamsPanel } from './components/ParamsPanel.js';
 import { StatusBar } from './components/StatusBar.js';
 import { DownloadBar } from './components/DownloadBar.js';
+import { HelpOverlay } from './components/HelpOverlay.js';
+import { SessionBrowser } from './components/SessionBrowser.js';
+import { SystemPromptPanel } from './components/SystemPromptPanel.js';
+import { MemoryPanel } from './components/MemoryPanel.js';
 import { saveConfig, newSessionFilename } from '../utils/storage.js';
+import { buildPrompt } from '../utils/context.js';
+import { BANNER, COLORS, BOX, ICONS, MODEL_PRESETS, getVramColor } from './theme.js';
 
 const ERROR_HINTS = {
   MODEL_NOT_FOUND: 'Check model ID and HF_TOKEN env var.',
@@ -22,97 +29,131 @@ const ERROR_HINTS = {
 function ModelInputView({ onConfirm, device }) {
   const [modelId, setModelId] = useState('');
   const [hfToken, setHfToken] = useState('');
-  const [activeField, setActiveField] = useState('modelId'); // 'modelId' | 'hfToken'
+  const [activeField, setActiveField] = useState('preset'); // 'preset' | 'customId' | 'hfToken'
+  const [presetIdx, setPresetIdx] = useState(0);
 
   useInput((input, key) => {
-    if (key.upArrow || key.downArrow || key.tab) {
-      setActiveField((prev) => (prev === 'modelId' ? 'hfToken' : 'modelId'));
+    // Navigate fields
+    if (key.tab) {
+      if (activeField === 'preset') setActiveField('customId');
+      else if (activeField === 'customId') setActiveField('hfToken');
+      else setActiveField('preset');
       return;
     }
+
+    // Submit
     if (key.return) {
-      if (activeField === 'modelId') {
-        if (modelId.trim()) {
-          setActiveField('hfToken');
-        }
-        return;
-      }
-      // If we are on hfToken, confirm the load
-      if (modelId.trim()) {
-        onConfirm(modelId.trim(), hfToken.trim());
+      if (activeField === 'preset') {
+        onConfirm(MODEL_PRESETS[presetIdx].id, hfToken.trim());
+      } else if (activeField === 'customId') {
+        if (modelId.trim()) setActiveField('hfToken');
+      } else if (activeField === 'hfToken') {
+        const finalModelId = modelId.trim() || MODEL_PRESETS[presetIdx].id;
+        onConfirm(finalModelId, hfToken.trim());
       }
       return;
     }
+
+    // Handle preset selection
+    if (activeField === 'preset') {
+      if (key.upArrow) setPresetIdx(Math.max(0, presetIdx - 1));
+      if (key.downArrow) setPresetIdx(Math.min(MODEL_PRESETS.length - 1, presetIdx + 1));
+      return;
+    }
+
+    // Backspace for custom fields
     if (key.backspace || key.delete) {
-      if (activeField === 'modelId') {
-        setModelId((prev) => prev.slice(0, -1));
-      } else {
-        setHfToken((prev) => prev.slice(0, -1));
-      }
+      if (activeField === 'customId') setModelId(prev => prev.slice(0, -1));
+      else if (activeField === 'hfToken') setHfToken(prev => prev.slice(0, -1));
       return;
     }
+
+    // Text input for custom fields
     if (input && !key.ctrl && !key.meta) {
-      if (activeField === 'modelId') {
-        setModelId((prev) => prev + input);
-      } else {
-        setHfToken((prev) => prev + input);
-      }
+      if (activeField === 'customId') setModelId(prev => prev + input);
+      else if (activeField === 'hfToken') setHfToken(prev => prev + input);
     }
   });
 
   return (
-    <Box
-      flexDirection="column"
-      alignItems="center"
-      justifyContent="center"
-      padding={2}
-    >
-      <Text bold color="cyan">
-        {'╔══════════════════════════════════════════╗'}
+    <Box flexDirection="column" alignItems="center" justifyContent="center" padding={2}>
+      <Box flexDirection="column" marginBottom={1}>
+        {BANNER.map((line, i) => (
+          <Text key={i} bold color={COLORS.primaryBright}>
+            {line}
+          </Text>
+        ))}
+      </Box>
+      <Text color={COLORS.textDim}>
+        Run massive LLMs in a terminal dashboard {ICONS.rocket}
       </Text>
-      <Text bold color="cyan">
-        {'║          🚀 AirLLM TUI  v0.1.0          ║'}
-      </Text>
-      <Text bold color="cyan">
-        {'║   Run massive LLMs on consumer hardware  ║'}
-      </Text>
-      <Text bold color="cyan">
-        {'╚══════════════════════════════════════════╝'}
-      </Text>
+      
+      <Box marginTop={1} marginBottom={2}>
+        <Text color={COLORS.textMuted}>
+          Detected device: <Text bold color={COLORS.accentBright}>{device.toUpperCase()}</Text>
+        </Text>
+      </Box>
+
+      {/* Preset selection */}
+      <Box flexDirection="column" width={65} marginBottom={2}>
+        <Text bold color={activeField === 'preset' ? COLORS.primaryBright : COLORS.textDim}>
+          {activeField === 'preset' ? BOX.arrow : ' '} 1. Select a Model Preset
+        </Text>
+        <Box flexDirection="column" marginLeft={3} marginTop={1}>
+          {MODEL_PRESETS.map((preset, idx) => {
+            const isSelected = presetIdx === idx;
+            return (
+              <Box key={idx}>
+                <Text color={isSelected && activeField === 'preset' ? COLORS.accent : COLORS.textDim}>
+                  {isSelected ? `${BOX.arrow} ` : '  '}
+                </Text>
+                <Text bold={isSelected} color={isSelected ? COLORS.text : COLORS.textDim} minWidth={16}>
+                  {preset.name}
+                </Text>
+                <Text color={COLORS.textMuted} minWidth={10}>
+                  {preset.vram}
+                </Text>
+                <Text color={COLORS.textMuted} italic>
+                  {preset.description}
+                </Text>
+                {preset.recommended && (
+                  <Text color={COLORS.warning}> {ICONS.star}</Text>
+                )}
+              </Box>
+            );
+          })}
+        </Box>
+      </Box>
+
+      {/* Custom Model ID */}
+      <Box flexDirection="column" width={65} marginBottom={2}>
+        <Text bold color={activeField === 'customId' ? COLORS.primaryBright : COLORS.textDim}>
+          {activeField === 'customId' ? BOX.arrow : ' '} 2. Or enter a custom HuggingFace ID
+        </Text>
+        <Box marginLeft={3} marginTop={1}>
+          <Text color={COLORS.text}>
+            {modelId || <Text color={COLORS.textMuted}>meta-llama/Llama-2-7b-hf</Text>}
+          </Text>
+          {activeField === 'customId' && <Text color={COLORS.accent}>█</Text>}
+        </Box>
+      </Box>
+
+      {/* HF Token */}
+      <Box flexDirection="column" width={65} marginBottom={2}>
+        <Text bold color={activeField === 'hfToken' ? COLORS.primaryBright : COLORS.textDim}>
+          {activeField === 'hfToken' ? BOX.arrow : ' '} 3. HuggingFace Token (if needed)
+        </Text>
+        <Box marginLeft={3} marginTop={1}>
+          <Text color={COLORS.text}>
+            {hfToken ? '*'.repeat(hfToken.length) : <Text color={COLORS.textMuted}>hf_...</Text>}
+          </Text>
+          {activeField === 'hfToken' && <Text color={COLORS.accent}>█</Text>}
+        </Box>
+      </Box>
+
       <Box marginTop={1}>
-        <Text dimColor>
-          Detected device: <Text bold color="yellow">{device}</Text>
-        </Text>
-      </Box>
-
-      {/* Model ID Field */}
-      <Box marginTop={1} flexDirection="column" width={50}>
-        <Text color={activeField === 'modelId' ? 'cyan' : 'white'} bold={activeField === 'modelId'}>
-          {activeField === 'modelId' ? '❯ ' : '  '}1. HuggingFace Model ID:
-        </Text>
-        <Box marginLeft={4}>
-          <Text>
-            {modelId || <Text dimColor>meta-llama/Llama-2-7b-hf</Text>}
-          </Text>
-          {activeField === 'modelId' && <Text color="cyan">█</Text>}
-        </Box>
-      </Box>
-
-      {/* HF Token Field */}
-      <Box marginTop={1} flexDirection="column" width={50}>
-        <Text color={activeField === 'hfToken' ? 'cyan' : 'white'} bold={activeField === 'hfToken'}>
-          {activeField === 'hfToken' ? '❯ ' : '  '}2. HuggingFace Token (Optional):
-        </Text>
-        <Box marginLeft={4}>
-          <Text>
-            {hfToken ? '*'.repeat(hfToken.length) : <Text dimColor>hf_...</Text>}
-          </Text>
-          {activeField === 'hfToken' && <Text color="cyan">█</Text>}
-        </Box>
-      </Box>
-
-      <Box marginTop={2}>
-        <Text dimColor italic>
-          [Tab/Arrow] Switch Fields  •  [Enter] Confirm & Launch
+        <Text color={COLORS.textMuted} italic>
+          [Tab] Switch Fields  •  [↑/↓] Select Preset  •  [Enter] Confirm & Launch
         </Text>
       </Box>
     </Box>
@@ -122,17 +163,45 @@ function ModelInputView({ onConfirm, device }) {
 export function App({ bridge, config: initialConfig }) {
   const { exit } = useApp();
   const [config, setConfig] = useState(initialConfig);
-  const [focusedPane, setFocusedPane] = useState('chat');
+  const [focusedPane, setFocusedPane] = useState('chat'); // 'chat' | 'params' | 'telemetry'
   const [currentResponse, setCurrentResponse] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [params, setParams] = useState(initialConfig.params);
-  const [sessionFile] = useState(() => newSessionFilename());
   const [generationEmitter, setGenerationEmitter] = useState(null);
   const [needsModelInput, setNeedsModelInput] = useState(!initialConfig.model_id);
+  const [systemPrompt, setSystemPrompt] = useState(initialConfig.system_prompt || '');
+  
+  // Overlay states
+  const [showHelp, setShowHelp] = useState(false);
+  const [showSystemPrompt, setShowSystemPrompt] = useState(false);
+  const [showSessionBrowser, setShowSessionBrowser] = useState(false);
+  const [showMemoryPanel, setShowMemoryPanel] = useState(false);
 
   const engine = useEngine(bridge);
   const telemetry = useTelemetry(bridge);
-  const { messages, addMessage, clearHistory } = useHistory(sessionFile);
+  const { messages, addMessage, clearHistory, sessionFile, switchSession, deleteSession, listSessions } = useHistory(newSessionFilename());
+  const { memories, addMemory, deleteMemory, togglePin, pinnedMemories } = useMemory();
+
+  // ── Refs for stable handleSubmit (avoids re-creating callback on every message) ──
+  const messagesRef = useRef(messages);
+  const pinnedMemoriesRef = useRef(pinnedMemories);
+  const systemPromptRef = useRef(systemPrompt);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+  useEffect(() => { pinnedMemoriesRef.current = pinnedMemories; }, [pinnedMemories]);
+  useEffect(() => { systemPromptRef.current = systemPrompt; }, [systemPrompt]);
+
+  // ── Token throttle refs ──
+  const tokenBufferRef = useRef('');
+  const tokenFlushTimerRef = useRef(null);
+  
+  const [sessionsList, setSessionsList] = useState([]);
+
+  // Load sessions when opening browser
+  useEffect(() => {
+    if (showSessionBrowser) {
+      listSessions().then(setSessionsList);
+    }
+  }, [showSessionBrowser, listSessions]);
 
   // Handle model selection for first run
   const handleModelConfirm = useCallback(
@@ -160,7 +229,7 @@ export function App({ bridge, config: initialConfig }) {
     }
   }, [engine.lastError, addMessage]);
 
-  // Surface device fallback warning in the chat history and persist to config
+  // Surface device fallback warning
   useEffect(() => {
     if (engine.deviceFallback) {
       const { requested, actual, reason, fix_command, fix_url } = engine.deviceFallback;
@@ -172,7 +241,6 @@ export function App({ bridge, config: initialConfig }) {
         msg += `\n\n  More info: ${fix_url}`;
       }
       addMessage('assistant', msg);
-      // Persist the corrected device so we don't hit this every restart
       const updatedConfig = { ...config, device: actual };
       setConfig(updatedConfig);
       saveConfig(updatedConfig).catch(() => {});
@@ -189,16 +257,47 @@ export function App({ bridge, config: initialConfig }) {
       setIsGenerating(true);
       telemetry.reset();
 
-      const emitter = bridge.generate(prompt, params);
+      // Build full prompt with conversation history, system prompt, and pinned memories
+      // Uses refs to avoid stale closure issues without needing them as dependencies
+      const maxTurns = params.context_window ?? 20;
+      const finalPrompt = buildPrompt({
+        messages: messagesRef.current,
+        systemPrompt: systemPromptRef.current,
+        pinnedMemories: pinnedMemoriesRef.current,
+        newUserPrompt: prompt,
+        maxTurns,
+      });
+
+      const emitter = bridge.generate(finalPrompt, params);
       setGenerationEmitter(emitter);
 
+      // Throttled token accumulation — batch updates every ~32ms (≈30fps)
+      tokenBufferRef.current = '';
       emitter.on('token', (text) => {
-        setCurrentResponse((prev) => prev + text);
+        tokenBufferRef.current += text;
+        if (!tokenFlushTimerRef.current) {
+          tokenFlushTimerRef.current = setTimeout(() => {
+            tokenFlushTimerRef.current = null;
+            const buffered = tokenBufferRef.current;
+            tokenBufferRef.current = '';
+            if (buffered) {
+              setCurrentResponse((prev) => prev + buffered);
+            }
+          }, 32);
+        }
       });
 
       emitter.on('done', (stats) => {
+        // Flush any remaining buffered tokens
+        if (tokenFlushTimerRef.current) {
+          clearTimeout(tokenFlushTimerRef.current);
+          tokenFlushTimerRef.current = null;
+        }
+        const remaining = tokenBufferRef.current;
+        tokenBufferRef.current = '';
         setCurrentResponse((prev) => {
-          if (prev) addMessage('assistant', prev);
+          const final = prev + remaining;
+          if (final) addMessage('assistant', final);
           return '';
         });
         setIsGenerating(false);
@@ -206,12 +305,18 @@ export function App({ bridge, config: initialConfig }) {
       });
 
       emitter.on('error', (payload) => {
+        // Flush timer on error
+        if (tokenFlushTimerRef.current) {
+          clearTimeout(tokenFlushTimerRef.current);
+          tokenFlushTimerRef.current = null;
+        }
+        tokenBufferRef.current = '';
         const hint = ERROR_HINTS[payload.code] || ERROR_HINTS.UNKNOWN;
         const hfHint =
           payload.code === 'MODEL_NOT_FOUND' &&
-          !process.env.HF_TOKEN &&
-          !process.env.HUGGING_FACE_HUB_TOKEN
-            ? ' Set HF_TOKEN in your shell environment for gated models.'
+          !config.hf_token &&
+          !process.env.HF_TOKEN
+            ? ' Set HF_TOKEN in your shell environment or config for gated models.'
             : '';
         addMessage('assistant', `⚠ Error: ${payload.message || 'Unknown error'}. ${hint}${hfHint}`);
         setCurrentResponse('');
@@ -220,15 +325,23 @@ export function App({ bridge, config: initialConfig }) {
       });
 
       emitter.on('interrupted', () => {
+        // Flush timer on interrupt
+        if (tokenFlushTimerRef.current) {
+          clearTimeout(tokenFlushTimerRef.current);
+          tokenFlushTimerRef.current = null;
+        }
+        const remaining = tokenBufferRef.current;
+        tokenBufferRef.current = '';
         setCurrentResponse((prev) => {
-          if (prev) addMessage('assistant', prev + ' [interrupted]');
+          const final = prev + remaining;
+          if (final) addMessage('assistant', final + ' [interrupted]');
           return '';
         });
         setIsGenerating(false);
         setGenerationEmitter(null);
       });
     },
-    [bridge, engine.status, params, addMessage, telemetry]
+    [bridge, engine.status, params, addMessage, telemetry, config.hf_token]
   );
 
   const handleAbort = useCallback(() => {
@@ -246,12 +359,23 @@ export function App({ bridge, config: initialConfig }) {
     [bridge, config]
   );
 
+  const handleSystemPromptChange = useCallback(
+    (newPrompt) => {
+      setSystemPrompt(newPrompt);
+      const updatedConfig = { ...config, system_prompt: newPrompt };
+      setConfig(updatedConfig);
+      saveConfig(updatedConfig).catch(() => {});
+      setShowSystemPrompt(false);
+    },
+    [config]
+  );
+
   // Handle restart on engine crash
   const handleRestart = useCallback(async () => {
     try {
       await bridge.start();
       if (config.model_id) {
-        engine.loadModel(config.model_id, config.device);
+        engine.loadModel(config.model_id, config.device, config.hf_token);
       }
     } catch {
       // Error will be surfaced by useEngine
@@ -261,22 +385,76 @@ export function App({ bridge, config: initialConfig }) {
   // Global key bindings
   useInput(
     (input, key) => {
-      if (key.tab) {
-        setFocusedPane((prev) => (prev === 'chat' ? 'params' : 'chat'));
+      const overlayActive = showHelp || showSessionBrowser || showSystemPrompt || showMemoryPanel;
+      
+      // Close overlays
+      if (overlayActive && (key.escape || (key.ctrl && input === 'w'))) {
+        setShowHelp(false);
+        setShowSessionBrowser(false);
+        setShowSystemPrompt(false);
+        setShowMemoryPanel(false);
         return;
       }
 
-      if (input === 'q' && !isGenerating && focusedPane !== 'params') {
+      if (overlayActive) return;
+
+      // Pane switching
+      if (key.tab) {
+        setFocusedPane((prev) => {
+          if (prev === 'chat') return 'params';
+          if (prev === 'params') return 'telemetry';
+          return 'chat';
+        });
+        return;
+      }
+
+      // Ctrl-based shortcuts work regardless of input focus
+      if (key.ctrl && input === 'n') {
+        switchSession(newSessionFilename());
+        return;
+      }
+      if (key.ctrl && input === 'o') {
+        setShowSessionBrowser(true);
+        return;
+      }
+      if (key.ctrl && input === 'l') {
+        clearHistory();
+        return;
+      }
+
+      // ── Single-letter shortcuts ──────────────────────────────────────
+      // Only fire when the user is NOT actively typing in the input bar.
+      // The input bar is active when: chat pane focused + model ready + not generating.
+      const isInputActive = focusedPane === 'chat' && engine.status === 'ready' && !isGenerating;
+      if (isInputActive) return; // Let InputBar handle all keypresses
+
+      // These only fire when NOT typing (sidebar focused, or model loading, etc.)
+      if (input === '?' || key.f1) {
+        setShowHelp(true);
+        return;
+      }
+      if (input === 's' || input === 'S') {
+        if (!isGenerating) setShowSystemPrompt(true);
+        return;
+      }
+      if (input === 'm' || input === 'M') {
+        if (!isGenerating) setShowMemoryPanel(true);
+        return;
+      }
+
+      // Quit
+      if (input === 'q' && !isGenerating) {
         bridge.shutdown().then(() => exit());
         return;
       }
 
+      // Restart
       if (input === 'r' && engine.status === 'error') {
         handleRestart();
         return;
       }
     },
-    { isActive: focusedPane === 'chat' && !isGenerating }
+    { isActive: !needsModelInput }
   );
 
   // First-run model selection
@@ -289,50 +467,122 @@ export function App({ bridge, config: initialConfig }) {
   const isCpu = device === 'cpu';
   const isLoadingModel = engine.status === 'loading_model';
 
+  const overlayActive = showHelp || showSessionBrowser || showSystemPrompt || showMemoryPanel;
+
   return (
-    <Box flexDirection="column">
-      <Box flexGrow={1} flexDirection="row">
-        <Box flexGrow={3} flexDirection="column">
-          <ChatPane
-            messages={messages}
-            currentResponse={currentResponse}
-            isGenerating={isGenerating}
-            sessionFile={sessionFile}
-          />
-          <InputBar
-            onSubmit={handleSubmit}
-            onAbort={handleAbort}
-            isGenerating={isGenerating}
-            modelReady={engine.status === 'ready'}
-          />
-        </Box>
-        <Box flexGrow={1} flexDirection="column">
-          <TelemetryPane telemetry={telemetry} />
-          <ParamsPanel
-            params={params}
-            isFocused={focusedPane === 'params'}
-            onParamsChange={handleParamsChange}
-          />
-        </Box>
-      </Box>
-      {isLoadingModel && (
-        <DownloadBar
-          downloadProgress={engine.downloadProgress}
-          stage={engine.loadStage}
+    <Box flexDirection="column" height="100%">
+      {/* Overlays */}
+      {showHelp && <HelpOverlay visible={showHelp} onClose={() => setShowHelp(false)} />}
+      
+      {showSessionBrowser && (
+        <SessionBrowser
+          visible={showSessionBrowser}
+          sessions={sessionsList}
+          onSelect={(filename) => {
+            switchSession(filename);
+            setShowSessionBrowser(false);
+          }}
+          onDelete={async (filename) => {
+            await deleteSession(filename);
+            listSessions().then(setSessionsList);
+          }}
+          onNewSession={() => {
+            switchSession(newSessionFilename());
+            setShowSessionBrowser(false);
+          }}
+          onClose={() => setShowSessionBrowser(false)}
         />
       )}
-      {isCpu && !isLoadingModel && (
-        <Box paddingX={1}>
-          <Text color="yellow" bold>
-            ⚠  Running on CPU — generation will be very slow
-          </Text>
+
+      {showMemoryPanel && (
+        <MemoryPanel
+          visible={showMemoryPanel}
+          memories={memories}
+          onAdd={addMemory}
+          onDelete={deleteMemory}
+          onTogglePin={togglePin}
+          onClose={() => setShowMemoryPanel(false)}
+        />
+      )}
+
+      {showSystemPrompt && (
+        <SystemPromptPanel
+          visible={showSystemPrompt}
+          systemPrompt={systemPrompt}
+          onSystemPromptChange={handleSystemPromptChange}
+          onClose={() => setShowSystemPrompt(false)}
+        />
+      )}
+
+      {/* Main UI (hidden if overlay is active) */}
+      {!overlayActive && (
+        <Box flexDirection="column" flexGrow={1}>
+          {/* Main layout: Chat | Sidebar */}
+          <Box flexGrow={1} flexDirection="row">
+            {/* Left: Chat */}
+            <Box flexGrow={3} flexDirection="column" paddingRight={1}>
+              <ChatPane
+                messages={messages}
+                currentResponse={currentResponse}
+                isGenerating={isGenerating}
+                sessionFile={sessionFile}
+                isFocused={focusedPane === 'chat'}
+              />
+              <Box marginTop={1}>
+                <InputBar
+                  onSubmit={handleSubmit}
+                  onAbort={handleAbort}
+                  isGenerating={isGenerating}
+                  modelReady={engine.status === 'ready'}
+                />
+              </Box>
+            </Box>
+            
+            {/* Right: Sidebar */}
+            <Box flexGrow={1} flexDirection="column" minWidth={30}>
+              <Box flexGrow={0} marginBottom={1}>
+                <TelemetryPane
+                  telemetry={telemetry}
+                  isFocused={focusedPane === 'telemetry'}
+                />
+              </Box>
+              <Box flexGrow={1}>
+                <ParamsPanel
+                  params={params}
+                  isFocused={focusedPane === 'params'}
+                  onParamsChange={handleParamsChange}
+                />
+              </Box>
+            </Box>
+          </Box>
+          
+          {isLoadingModel && (
+            <Box marginTop={1}>
+              <DownloadBar
+                downloadProgress={engine.downloadProgress}
+                stage={engine.loadStage}
+              />
+            </Box>
+          )}
+          
+          {isCpu && !isLoadingModel && (
+            <Box paddingX={1} marginTop={1}>
+              <Text color={COLORS.warning} bold>
+                {ICONS.warning} Running on CPU — generation will be very slow
+              </Text>
+            </Box>
+          )}
+          
+          <Box marginTop={1}>
+            <StatusBar
+              modelId={modelId}
+              device={device}
+              status={engine.status}
+              focusedPane={focusedPane}
+            />
+          </Box>
         </Box>
       )}
-      <StatusBar
-        modelId={modelId}
-        device={device}
-        status={engine.status}
-      />
     </Box>
   );
 }

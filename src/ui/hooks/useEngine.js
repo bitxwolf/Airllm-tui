@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export function useEngine(bridge) {
   const [status, setStatus] = useState('idle');
@@ -8,6 +8,10 @@ export function useEngine(bridge) {
   const [lastError, setLastError] = useState(null);
   const [downloadProgress, setDownloadProgress] = useState(null);
   const [deviceFallback, setDeviceFallback] = useState(null);
+
+  // Track status in a ref so onToken doesn't cause needless re-renders
+  const statusRef = useRef(status);
+  useEffect(() => { statusRef.current = status; }, [status]);
 
   useEffect(() => {
     if (!bridge) return;
@@ -41,7 +45,11 @@ export function useEngine(bridge) {
     };
 
     const onToken = () => {
-      setStatus('generating');
+      // Only update status if not already generating — avoids a setState
+      // call (and full re-render) on every single token received.
+      if (statusRef.current !== 'generating') {
+        setStatus('generating');
+      }
     };
 
     const onGenerationDone = () => {

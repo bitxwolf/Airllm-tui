@@ -1,7 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
-import { loadHistory, appendHistory, clearSessionFile } from '../../utils/storage.js';
+import {
+  loadHistory,
+  appendHistory,
+  clearSessionFile,
+  deleteSession as deleteSessionFile,
+  listSessionsWithMeta,
+} from '../../utils/storage.js';
 
-export function useHistory(sessionFile) {
+export function useHistory(initialSessionFile) {
+  const [sessionFile, setSessionFile] = useState(initialSessionFile);
   const [messages, setMessages] = useState([]);
 
   useEffect(() => {
@@ -26,5 +33,20 @@ export function useHistory(sessionFile) {
     clearSessionFile(sessionFile).catch(() => {});
   }, [sessionFile]);
 
-  return { messages, addMessage, clearHistory };
+  const switchSession = useCallback(async (newSessionFile) => {
+    setSessionFile(newSessionFile);
+    const loaded = await loadHistory(newSessionFile);
+    setMessages(loaded);
+    return loaded;
+  }, []);
+
+  const deleteSession = useCallback(async (targetSessionFile) => {
+    await deleteSessionFile(targetSessionFile);
+  }, []);
+
+  const listSessions = useCallback(async () => {
+    return listSessionsWithMeta();
+  }, []);
+
+  return { messages, addMessage, clearHistory, sessionFile, switchSession, deleteSession, listSessions };
 }

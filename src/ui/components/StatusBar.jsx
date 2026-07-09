@@ -1,49 +1,75 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
+import { COLORS, STATUS, ICONS, BOX, shortModelName, formatTime, VERSION } from '../theme.js';
 
-const STATUS_COLORS = {
-  ready: 'green',
-  generating: 'yellow',
-  error: 'red',
-  loading_model: 'cyan',
-  idle: 'gray',
-};
+export const StatusBar = React.memo(function StatusBar({ modelId, device, status, focusedPane }) {
+  const [clock, setClock] = useState(formatTime(new Date()));
 
-const STATUS_LABELS = {
-  ready: '● Ready',
-  generating: '◌ Generating…',
-  error: '✖ Error',
-  loading_model: '◎ Loading Model…',
-  idle: '○ Idle',
-};
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setClock(formatTime(new Date()));
+    }, 30000); // Update every 30s
+    return () => clearInterval(interval);
+  }, []);
 
-export function StatusBar({ modelId, device, status }) {
-  const color = STATUS_COLORS[status] || 'gray';
-  const label = STATUS_LABELS[status] || status;
+  const statusDef = STATUS[status] || STATUS.idle;
+  const modelShort = shortModelName(modelId);
+  const deviceLabel = device ? device.toUpperCase() : '—';
+
+  // Dynamic shortcut hints based on state
+  const hints = [];
+  if (status === 'error') {
+    hints.push({ key: 'R', label: 'Restart' });
+  }
+  hints.push({ key: 'Tab', label: 'Pane' });
+  hints.push({ key: '?', label: 'Help' });
+  hints.push({ key: 'Q', label: 'Quit' });
 
   return (
     <Box
-      borderStyle="single"
-      borderColor="gray"
+      borderStyle="round"
+      borderColor={COLORS.borderDim}
       paddingX={1}
       justifyContent="space-between"
       width="100%"
     >
+      {/* Left: Status + Model + Device */}
       <Box gap={2}>
-        <Text dimColor>
-          Model: <Text bold color="white">{modelId || 'None'}</Text>
+        <Box gap={1}>
+          <Text color={statusDef.color} bold>
+            {statusDef.icon}
+          </Text>
+          <Text color={statusDef.color}>
+            {statusDef.label}
+          </Text>
+        </Box>
+        <Text color={COLORS.textMuted}>
+          {ICONS.model}{' '}
+          <Text color={COLORS.text} bold>
+            {modelShort}
+          </Text>
         </Text>
-        <Text dimColor>
-          Device: <Text bold color="white">{device || '—'}</Text>
-        </Text>
-        <Text dimColor>
-          Status: <Text bold color={color}>{label}</Text>
+        <Text color={COLORS.textMuted}>
+          {BOX.vertical} {deviceLabel}
         </Text>
       </Box>
+
+      {/* Right: Shortcuts + Clock + Version */}
       <Box gap={2}>
-        <Text dimColor>[Q] Quit</Text>
-        <Text dimColor>[Tab] Switch Pane</Text>
+        {hints.map((h) => (
+          <Text key={h.key} color={COLORS.textMuted}>
+            <Text color={COLORS.primaryBright}>[{h.key}]</Text>
+            {' '}
+            {h.label}
+          </Text>
+        ))}
+        <Text color={COLORS.textMuted}>
+          {BOX.vertical} {clock}
+        </Text>
+        <Text color={COLORS.borderDim}>
+          v{VERSION}
+        </Text>
       </Box>
     </Box>
   );
-}
+});

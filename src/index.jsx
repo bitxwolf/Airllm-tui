@@ -8,35 +8,38 @@ import { loadConfig } from './utils/storage.js';
 import { getPythonExe, getPythonScriptPath } from './utils/platform.js';
 import { EngineBridge } from './engine/bridge.js';
 import { App } from './ui/App.js';
+import { BANNER, VERSION, COLORS, ICONS } from './ui/theme.js';
 import chalk from 'chalk';
 
 function LoadingScreen({ phase, detail, progressLines }) {
   return (
     <Box flexDirection="column" padding={1}>
-      <Text bold color="cyan">
-        {'╔══════════════════════════════════════════╗'}
+      <Box flexDirection="column" marginBottom={1}>
+        {BANNER.map((line, i) => (
+          <Text key={i} bold color={COLORS.primaryBright}>
+            {line}
+          </Text>
+        ))}
+      </Box>
+      <Text color={COLORS.textDim}>
+        Run massive LLMs in a terminal dashboard {ICONS.rocket}  v{VERSION}
       </Text>
-      <Text bold color="cyan">
-        {'║          🚀 AirLLM TUI  v0.1.0          ║'}
-      </Text>
-      <Text bold color="cyan">
-        {'╚══════════════════════════════════════════╝'}
-      </Text>
-      <Box marginTop={1}>
-        <Text color="green">
+      
+      <Box marginTop={2}>
+        <Text color={COLORS.accent}>
           <Spinner type="dots" />
         </Text>
-        <Text> {phase}</Text>
+        <Text color={COLORS.text}> {phase}</Text>
       </Box>
       {detail && (
         <Box marginLeft={3}>
-          <Text dimColor>{detail}</Text>
+          <Text color={COLORS.textDim}>{detail}</Text>
         </Box>
       )}
       {progressLines && progressLines.length > 0 && (
         <Box marginTop={1} flexDirection="column" marginLeft={3}>
           {progressLines.slice(-3).map((line, idx) => (
-            <Text key={idx} dimColor>
+            <Text key={idx} color={COLORS.textMuted}>
               {line}
             </Text>
           ))}

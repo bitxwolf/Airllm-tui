@@ -1,8 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
+import { COLORS, ICONS, BOX } from '../theme.js';
 
 export function InputBar({ onSubmit, onAbort, isGenerating, modelReady }) {
   const [buffer, setBuffer] = useState('');
+  const [cursorBlink, setCursorBlink] = useState(true);
+
+  // Blinking cursor in ready state
+  useEffect(() => {
+    if (isGenerating || !modelReady) return;
+    const interval = setInterval(() => {
+      setCursorBlink((prev) => !prev);
+    }, 530);
+    return () => clearInterval(interval);
+  }, [isGenerating, modelReady]);
 
   useInput(
     (input, key) => {
@@ -41,47 +52,61 @@ export function InputBar({ onSubmit, onAbort, isGenerating, modelReady }) {
     { isActive: true }
   );
 
+  // ── Generating state ────────────────────────────────────────────────────
   if (isGenerating) {
     return (
       <Box
-        borderStyle="single"
-        borderColor="yellow"
+        borderStyle="round"
+        borderColor={COLORS.warning}
         paddingX={1}
       >
-        <Text color="yellow">
-          ◌ Generating… press Esc to abort
+        <Text color={COLORS.warning} bold>
+          {ICONS.speed} Generating…
+        </Text>
+        <Text color={COLORS.textMuted}>
+          {'  '}press Esc to abort
         </Text>
       </Box>
     );
   }
 
+  // ── Model not ready state ───────────────────────────────────────────────
   if (!modelReady) {
     return (
       <Box
-        borderStyle="single"
-        borderColor="gray"
+        borderStyle="round"
+        borderColor={COLORS.borderDim}
         paddingX={1}
       >
-        <Text dimColor>
-          [Load a model first — enter model ID above]
+        <Text color={COLORS.textMuted}>
+          {ICONS.model} Waiting for model to load…
         </Text>
       </Box>
     );
   }
 
+  // ── Ready state ─────────────────────────────────────────────────────────
   return (
     <Box
-      borderStyle="single"
-      borderColor="cyan"
+      borderStyle="round"
+      borderColor={COLORS.accent}
       paddingX={1}
     >
-      <Text color="cyan" bold>
-        ❯{' '}
+      <Text color={COLORS.accent} bold>
+        {BOX.arrow}{' '}
       </Text>
       <Text>
         {buffer}
-        <Text color="cyan">█</Text>
+        <Text color={COLORS.accent}>
+          {cursorBlink ? '▌' : ' '}
+        </Text>
       </Text>
+      {buffer.length > 0 && (
+        <Text color={COLORS.textMuted}>
+          {' '}
+          ({buffer.length})
+        </Text>
+      )}
     </Box>
   );
 }

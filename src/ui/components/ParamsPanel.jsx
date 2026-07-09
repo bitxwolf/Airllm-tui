@@ -1,13 +1,29 @@
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
+import { COLORS, ICONS, BOX } from '../theme.js';
 
 const PARAM_DEFS = [
-  { key: 'temperature', label: 'Temperature', min: 0.1, max: 2.0, step: 0.1, decimals: 1 },
-  { key: 'top_p', label: 'Top-p', min: 0.1, max: 1.0, step: 0.05, decimals: 2 },
-  { key: 'max_new_tokens', label: 'Max Tokens', min: 64, max: 4096, step: 64, decimals: 0 },
+  { key: 'temperature', label: 'Temperature', min: 0.1, max: 2.0, step: 0.1, decimals: 1, unit: '' },
+  { key: 'top_p', label: 'Top-p', min: 0.1, max: 1.0, step: 0.05, decimals: 2, unit: '' },
+  { key: 'max_new_tokens', label: 'Max Tokens', min: 64, max: 4096, step: 64, decimals: 0, unit: 'tok' },
+  { key: 'context_window', label: 'Context Turns', min: 0, max: 50, step: 1, decimals: 0, unit: 'msgs' },
 ];
 
-export function ParamsPanel({ params, isFocused, onParamsChange }) {
+function ParamSlider({ value, min, max, width = 12, isSelected }) {
+  const normalised = (value - min) / (max - min);
+  const filled = Math.round(normalised * width);
+  const empty = width - filled;
+  const color = isSelected ? COLORS.accent : COLORS.textDim;
+
+  return (
+    <Text>
+      <Text color={color}>{BOX.block.repeat(filled)}</Text>
+      <Text color={COLORS.borderDim}>{BOX.blockLight.repeat(empty)}</Text>
+    </Text>
+  );
+}
+
+export const ParamsPanel = React.memo(function ParamsPanel({ params, isFocused, onParamsChange }) {
   const [selectedIdx, setSelectedIdx] = useState(0);
 
   useInput(
@@ -39,13 +55,15 @@ export function ParamsPanel({ params, isFocused, onParamsChange }) {
     <Box
       flexDirection="column"
       borderStyle="round"
-      borderColor={isFocused ? 'cyan' : 'gray'}
+      borderColor={isFocused ? COLORS.primary : COLORS.border}
       paddingX={1}
       paddingY={0}
     >
-      <Text bold color={isFocused ? 'cyan' : 'gray'}>
-        ⚙ Parameters
+      {/* Header */}
+      <Text bold color={isFocused ? COLORS.primary : COLORS.textDim}>
+        {ICONS.params} Parameters
       </Text>
+
       <Box marginTop={1} flexDirection="column">
         {PARAM_DEFS.map((def, idx) => {
           const isSelected = isFocused && idx === selectedIdx;
@@ -54,34 +72,54 @@ export function ParamsPanel({ params, isFocused, onParamsChange }) {
             def.decimals > 0 ? value.toFixed(def.decimals) : String(value);
 
           return (
-            <Box key={def.key}>
-              <Text color={isSelected ? 'cyan' : undefined}>
-                {isSelected ? '› ' : '  '}
-              </Text>
-              <Text
-                bold={isSelected}
-                color={isSelected ? 'cyan' : 'white'}
-              >
-                {def.label.padEnd(14)}
-              </Text>
-              <Text dimColor={!isSelected}>
-                {isSelected ? '◂ ' : '  '}
-              </Text>
-              <Text bold color={isSelected ? 'yellow' : 'white'}>
-                {display}
-              </Text>
-              <Text dimColor={!isSelected}>
-                {isSelected ? ' ▸' : ''}
-              </Text>
+            <Box key={def.key} flexDirection="column">
+              <Box>
+                <Text color={isSelected ? COLORS.accent : COLORS.textDim}>
+                  {isSelected ? `${BOX.arrow} ` : '  '}
+                </Text>
+                <Text
+                  bold={isSelected}
+                  color={isSelected ? COLORS.text : COLORS.textDim}
+                >
+                  {def.label.padEnd(14)}
+                </Text>
+                <Text dimColor={!isSelected}>
+                  {isSelected ? `${BOX.arrowLeft} ` : '  '}
+                </Text>
+                <Text bold color={isSelected ? COLORS.warning : COLORS.text}>
+                  {display}
+                </Text>
+                {def.unit && (
+                  <Text color={COLORS.textMuted}> {def.unit}</Text>
+                )}
+                <Text dimColor={!isSelected}>
+                  {isSelected ? ` ${BOX.arrow}` : ''}
+                </Text>
+              </Box>
+              {isSelected && (
+                <Box marginLeft={2} marginTop={0}>
+                  <ParamSlider
+                    value={value}
+                    min={def.min}
+                    max={def.max}
+                    isSelected={isSelected}
+                  />
+                  <Text color={COLORS.textMuted}>
+                    {' '}
+                    {def.min}–{def.max}
+                  </Text>
+                </Box>
+              )}
             </Box>
           );
         })}
       </Box>
+
       {!isFocused && (
-        <Text dimColor italic>
+        <Text color={COLORS.textMuted} italic>
           [Tab to edit]
         </Text>
       )}
     </Box>
   );
-}
+});

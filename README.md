@@ -72,8 +72,9 @@ airllm-tui
 | 🚀 **One-command install** | `npx airllm-tui` — no Python setup, no pip, no config files |
 | 🧠 **Run 70B models on 4GB VRAM** | Layer-swapping loads one layer at a time — powered by [AirLLM](https://github.com/lyogavin/Anima/tree/main/air_benchmark) |
 | 📊 **Live telemetry** | Real-time VRAM usage, layer progress, tokens/sec |
-| 💬 **Multi-turn conversations** | Full chat history with persistent session storage |
-| ⚙️ **Interactive parameter tuning** | Adjust temperature, top-p, max tokens live with arrow keys |
+| 💬 **Multi-turn conversations** | Full chat history context with sliding history turn settings (0-50 prior turns) |
+| 📌 **Persistent Memory System** | Save key facts locally that persist across sessions, pin/inject them into prompts |
+| ⚙️ **Interactive parameter tuning** Live temperature, top-p, max tokens, and context turn parameters |
 | 🖥️ **Cross-platform** | Linux, macOS, and Windows |
 | 🎯 **GPU auto-detection** | NVIDIA CUDA, Apple MPS, and CPU fallback |
 | 🔧 **Built-in diagnostics** | `airllm-tui doctor` detects and fixes issues automatically |
@@ -150,14 +151,34 @@ Any HuggingFace model compatible with AirLLM works. Here are some tested ones:
 
 | Key | Action |
 |---|---|
-| `Enter` | Send prompt |
-| `Esc` | Abort generation |
-| `Tab` | Switch between Chat and Parameters panes |
-| `↑` `↓` | Navigate parameters (when Parameters pane is focused) |
-| `←` `→` | Adjust parameter value (when Parameters pane is focused) |
-| `Q` | Quit (when not generating) |
-| `R` | Restart engine (after a crash) |
+| `Enter` | Send prompt (in chat) |
+| `Esc` | Abort generation (in chat) |
+| `Tab` | Switch active pane (Chat ↔ Parameters ↔ Telemetry) |
+| `↑` `↓` | Scroll messages (Chat pane) / Navigate settings (Parameters pane) |
+| `←` `→` | Adjust parameters / Context Turns slider (Parameters pane) |
 | `Ctrl+C` | Force quit |
+
+### Sidebar Shortcuts (Press `Tab` to leave Chat input to use these)
+
+| Key | Action |
+|---|---|
+| `M` | Open Memory Panel |
+| `S` | System prompt editor |
+| `?` / `F1` | Help overlay |
+| `Ctrl+N` | New session |
+| `Ctrl+O` | Open session browser |
+| `Ctrl+L` | Clear chat |
+| `R` | Restart engine (if in error state) |
+| `Q` | Quit gracefully |
+
+### Memory Panel Controls
+
+| Key | Action |
+|---|---|
+| `Enter` (on "+ Add Memory") | Add a new memory entry (enters key then value inputs) |
+| `P` | Toggle Pin on selected memory (pinned memories are injected into prompts) |
+| `Delete` / `Backspace` | Delete selected memory |
+| `Esc` | Close panel |
 
 ---
 
@@ -394,12 +415,13 @@ All data is stored locally in `~/.airllm-tui/`:
 
 ```
 ~/.airllm-tui/
-├── config.json               # Model ID, device, and parameter settings
-├── history/                   # Conversation sessions
+├── config.json               # Model ID, device, parameter, and context window settings
+├── memory.json               # Key-value memories database
+├── history/                  # Conversation sessions
 │   ├── session-2026-07-06T14-22-00.jsonl
 │   └── ...
-├── .venv/                     # Isolated Python virtual environment
-└── debug.log                  # Debug logs (when --debug is used)
+├── .venv/                    # Isolated Python virtual environment
+└── debug.log                 # Debug logs (when --debug is used)
 ```
 
 Model weights are cached by HuggingFace in the standard `~/.cache/huggingface/` directory.

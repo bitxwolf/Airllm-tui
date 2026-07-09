@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
+import { COLORS, BOX, ICONS } from '../theme.js';
 
 function formatBytes(bytes) {
   if (!bytes || bytes === 0) return '0 B';
@@ -27,10 +28,10 @@ export function DownloadBar({ downloadProgress, stage }) {
   if (!downloadProgress) {
     // No active download yet — show spinner with stage text
     return (
-      <Box borderStyle="single" borderColor="cyan" paddingX={1} flexDirection="column">
+      <Box borderStyle="round" borderColor={COLORS.accent} paddingX={1} flexDirection="column">
         <Box gap={1}>
-          <Text color="cyan">{SPINNER[tick]}</Text>
-          <Text color="cyan" bold>
+          <Text color={COLORS.accent}>{SPINNER[tick]}</Text>
+          <Text color={COLORS.accent} bold>
             {stage || 'Preparing download…'}
           </Text>
         </Box>
@@ -43,8 +44,8 @@ export function DownloadBar({ downloadProgress, stage }) {
   const filled = Math.round((percent / 100) * BAR_WIDTH);
   const empty = BAR_WIDTH - filled;
 
-  const filledBar = '█'.repeat(filled);
-  const emptyBar = '░'.repeat(empty);
+  const filledBar = BOX.block.repeat(filled);
+  const emptyBar = BOX.blockLight.repeat(empty);
 
   const isIndeterminate = totalBytes === 0;
   const displayPct = isIndeterminate ? '?' : `${percent.toFixed(1)}%`;
@@ -52,34 +53,32 @@ export function DownloadBar({ downloadProgress, stage }) {
   const total = isIndeterminate ? '?' : formatBytes(totalBytes);
 
   return (
-    <Box borderStyle="single" borderColor="cyan" paddingX={1} flexDirection="column">
+    <Box borderStyle="round" borderColor={COLORS.accent} paddingX={1} flexDirection="column">
       {/* Header row */}
       <Box gap={2} justifyContent="space-between">
         <Box gap={1}>
-          <Text color="cyan" bold>
+          <Text color={COLORS.accent} bold>
             {SPINNER[tick]}
           </Text>
-          <Text color="cyan" bold>
-            Downloading model weights
+          <Text color={COLORS.accent} bold>
+            {ICONS.download} Downloading model weights
           </Text>
           {files > 1 && (
-            <Text dimColor>
+            <Text color={COLORS.textMuted}>
               ({files} files)
             </Text>
           )}
         </Box>
-        <Text color="green" bold>
+        <Text color={COLORS.success} bold>
           {displayPct}
         </Text>
       </Box>
 
       {/* Progress bar */}
       <Box gap={1} marginTop={0}>
-        <Text color="green">[</Text>
-        <Text color="green">{filledBar}</Text>
-        <Text dimColor>{emptyBar}</Text>
-        <Text color="green">]</Text>
-        <Text dimColor>
+        <Text color={COLORS.success}>{filledBar}</Text>
+        <Text color={COLORS.borderDim}>{emptyBar}</Text>
+        <Text color={COLORS.textMuted}>
           {downloaded} / {total}
         </Text>
       </Box>
