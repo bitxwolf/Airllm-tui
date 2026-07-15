@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { Box, Text, useInput } from 'ink';
 import { COLORS, ICONS, BOX, hrule, formatTime } from '../theme.js';
 import { useScroll } from '../hooks/useScroll.js';
+
+const VIEWPORT_HEIGHT = 20;
 
 export const ChatPane = React.memo(function ChatPane({
   messages,
@@ -10,59 +12,37 @@ export const ChatPane = React.memo(function ChatPane({
   sessionFile,
   isFocused,
 }) {
-  const [cursorVisible, setCursorVisible] = useState(true);
-  
   // Total items for scrolling: messages + (1 if generating response)
   const totalItems = messages.length + (isGenerating ? 1 : 0);
-  
-  // We estimate viewport height for scroll logic. Ink doesn't easily provide dynamic height without measureElement,
-  // so we'll pick a sensible default, e.g., 20.
-  const VIEWPORT_HEIGHT = 20;
-  
+
   const {
     scrollOffset,
-    isAutoScroll,
     scrollUp,
     scrollDown,
-    scrollToTop,
-    scrollToBottom,
     pageUp,
     pageDown,
     getVisibleRange,
   } = useScroll(totalItems, VIEWPORT_HEIGHT);
 
-  // Blinking cursor effect
-  useEffect(() => {
-    if (!isGenerating) return;
-    const interval = setInterval(() => {
-      setCursorVisible((prev) => !prev);
-    }, 500);
-    return () => clearInterval(interval);
-  }, [isGenerating]);
-
   // Keyboard navigation for scrolling
   useInput((input, key) => {
     if (!isFocused) return;
-    
+
     if (key.upArrow) scrollUp();
     if (key.downArrow) scrollDown();
     if (key.pageUp) pageUp();
     if (key.pageDown) pageDown();
-    
-    // Home/End (Ink might not map these directly on all terminals, but we can check if it does, or use fallback)
-    // Actually Ink has `home` and `end` on `key` object in newer versions, but if not we can use custom logic.
-    // We'll rely on the global shortcuts if needed, but for now we map PgUp/PgDn.
   }, { isActive: isFocused });
 
   // Calculate visible messages based on scroll
   const { start, end } = getVisibleRange();
-  
+
   // Create a combined array of items to render
   const allItems = [...messages];
   if (isGenerating) {
     allItems.push({ role: 'ai', content: currentResponse || '', isGenerating: true });
   }
-  
+
   const visibleItems = allItems.slice(start, end + 1);
 
   // Determine scroll indicator
@@ -133,15 +113,13 @@ export const ChatPane = React.memo(function ChatPane({
               <Text wrap="wrap" color={COLORS.text}>
                 {msg.content}
                 {msg.isGenerating && (
-                  <Text color={COLORS.accent}>
-                    {cursorVisible ? '▌' : ' '}
-                  </Text>
+                  <Text color={COLORS.accent}>▌</Text>
                 )}
               </Text>
             </Box>
             {msg.isGenerating && !msg.content && (
               <Text color={COLORS.textMuted}>
-                Thinking{cursorVisible ? '…' : ''}
+                Thinking…
               </Text>
             )}
             {msg.ts && (

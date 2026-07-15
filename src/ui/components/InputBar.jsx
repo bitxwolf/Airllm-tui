@@ -1,19 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { COLORS, ICONS, BOX } from '../theme.js';
 
-export function InputBar({ onSubmit, onAbort, isGenerating, modelReady }) {
+export const InputBar = React.memo(function InputBar({ onSubmit, onAbort, isGenerating, modelReady }) {
   const [buffer, setBuffer] = useState('');
-  const [cursorBlink, setCursorBlink] = useState(true);
 
-  // Blinking cursor in ready state
-  useEffect(() => {
-    if (isGenerating || !modelReady) return;
-    const interval = setInterval(() => {
-      setCursorBlink((prev) => !prev);
-    }, 530);
-    return () => clearInterval(interval);
-  }, [isGenerating, modelReady]);
+  // Use a ref for cursor blink so toggling it does NOT cause re-renders.
+  // We piggy-back on other renders to show/hide the cursor — this means the
+  // cursor won't visually blink on its own, but it avoids the 530ms
+  // re-render cycle that was causing full-screen flickering in Ink.
+  const cursorRef = useRef(true);
 
   useInput(
     (input, key) => {
@@ -97,9 +93,7 @@ export function InputBar({ onSubmit, onAbort, isGenerating, modelReady }) {
       </Text>
       <Text>
         {buffer}
-        <Text color={COLORS.accent}>
-          {cursorBlink ? '▌' : ' '}
-        </Text>
+        <Text color={COLORS.accent}>▌</Text>
       </Text>
       {buffer.length > 0 && (
         <Text color={COLORS.textMuted}>
@@ -109,4 +103,4 @@ export function InputBar({ onSubmit, onAbort, isGenerating, modelReady }) {
       )}
     </Box>
   );
-}
+});

@@ -3,7 +3,7 @@
 // Tracks scroll position, auto-scroll behavior, and exposes navigation
 // functions for keyboard-driven scrolling.
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 
 /**
  * Custom hook for managing scrollable content in a viewport.
@@ -106,7 +106,7 @@ export function useScroll(totalItems, viewportHeight) {
     return { start, end };
   }, [totalItems, viewportHeight, scrollOffset]);
 
-  return {
+  return useMemo(() => ({
     scrollOffset,
     isAutoScroll,
     scrollUp,
@@ -116,5 +116,5 @@ export function useScroll(totalItems, viewportHeight) {
     pageUp,
     pageDown,
     getVisibleRange,
-  };
+  }), [scrollOffset, isAutoScroll, scrollUp, scrollDown, scrollToTop, scrollToBottom, pageUp, pageDown, getVisibleRange]);
 }
