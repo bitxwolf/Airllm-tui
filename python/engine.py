@@ -512,6 +512,10 @@ def handle_generate(payload):
                     model.generate(**generation_kwargs)
                 except Exception as e:
                     gen_error.append(e)
+                    try:
+                        streamer.end()
+                    finally:
+                        streamer.text_queue.put(streamer.stop_signal)
 
             gen_thread = threading.Thread(target=run_generation, daemon=True)
             gen_thread.start()
