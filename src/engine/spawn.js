@@ -17,9 +17,7 @@ export function spawnPythonEngine(pythonExe, scriptPath) {
     env.HUGGING_FACE_HUB_TOKEN = process.env.HUGGING_FACE_HUB_TOKEN;
   }
 
-  if (isWin) {
-    env.PYTHONIOENCODING = 'utf-8';
-  }
+  env.PYTHONIOENCODING = 'utf-8';
 
   const child = spawn(pythonExe, [scriptPath], {
     stdio: ['pipe', 'pipe', 'pipe'],
