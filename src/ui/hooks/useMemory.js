@@ -41,18 +41,21 @@ export function useMemory() {
 
   const addMemory = useCallback(async (key, value) => {
     const entry = await addMemoryEntry({ key, value });
+    localChanges.current.push({ type: 'add', entry });
     setMemories((prev) => [...prev, entry]);
     return entry;
   }, []);
 
   const deleteMemory = useCallback(async (id) => {
     await deleteMemoryEntry(id);
+    localChanges.current.push({ type: 'delete', id });
     setMemories((prev) => prev.filter((m) => m.id !== id));
   }, []);
 
   const togglePin = useCallback(async (id) => {
     const updated = await toggleMemoryPin(id);
     if (updated) {
+      localChanges.current.push({ type: 'toggle', entry: updated });
       setMemories((prev) =>
         prev.map((m) => (m.id === id ? updated : m))
       );
