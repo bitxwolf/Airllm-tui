@@ -496,14 +496,14 @@ def handle_generate(payload):
 
             streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
 
-            generation_kwargs = dict(
-                input_ids=input_ids_tensor,
-                max_new_tokens=max_new_tokens,
-                temperature=temperature,
-                top_p=top_p,
-                do_sample=temperature > 0,
-                streamer=streamer,
-            )
+            generation_kwargs = {
+                "input_ids": input_ids_tensor,
+                "max_new_tokens": max_new_tokens,
+                "temperature": temperature,
+                "top_p": top_p,
+                "do_sample": temperature > 0,
+                "streamer": streamer,
+            }
 
             gen_error = []
 
