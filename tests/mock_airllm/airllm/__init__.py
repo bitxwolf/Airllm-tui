@@ -22,8 +22,9 @@ class MockModel:
         if len(response_ids) > max_new_tokens:
             response_ids = response_ids[:max_new_tokens]
             
-        response_tensor = torch.tensor(response_ids, dtype=torch.long)
-        generation_output = torch.cat([input_ids[0].cpu(), response_tensor], dim=0).unsqueeze(0)
+        response_tensor = torch.tensor(response_ids, dtype=torch.long, device=input_ids.device)
+        response_batch = response_tensor.unsqueeze(0).expand(input_ids.size(0), -1)
+        generation_output = torch.cat([input_ids, response_batch], dim=1)
         
         return generation_output
 
