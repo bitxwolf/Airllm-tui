@@ -18,7 +18,7 @@ export function buildPrompt({ messages, systemPrompt, pinnedMemories, newUserPro
 
   // Conversation history (last maxTurns messages)
   if (messages && messages.length > 0) {
-    const recentMessages = messages.slice(-maxTurns);
+    const recentMessages = maxTurns > 0 ? messages.slice(-maxTurns) : [];
     for (const msg of recentMessages) {
       const role = msg.role === 'user' ? 'User' : 'Assistant';
       parts.push(`${role}: ${msg.content}`);
