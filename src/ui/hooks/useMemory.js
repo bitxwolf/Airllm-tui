@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   loadMemory,
   addMemoryEntry,
@@ -8,10 +8,35 @@ import {
 
 export function useMemory() {
   const [memories, setMemories] = useState([]);
+  const localChanges = useRef([]);
 
   // Load memories on mount
   useEffect(() => {
-    loadMemory().then(setMemories).catch(() => setMemories([]));
+    loadMemory()
+      .then((loaded) => {
+        setMemories(() => {
+          let next = loaded;
+
+          for (const change of localChanges.current) {
+            if (change.type === 'add') {
+              next = next.some((memory) => memory.id === change.entry.id)
+                ? next.map((memory) =>
+                    memory.id === change.entry.id ? change.entry : memory
+                  )
+                : [...next, change.entry];
+            } else if (change.type === 'delete') {
+              next = next.filter((memory) => memory.id !== change.id);
+            } else if (change.type === 'toggle') {
+              next = next.map((memory) =>
+                memory.id === change.entry.id ? change.entry : memory
+              );
+            }
+          }
+
+          return next;
+        });
+      })
+      .catch(() => setMemories([]));
   }, []);
 
   const addMemory = useCallback(async (key, value) => {
