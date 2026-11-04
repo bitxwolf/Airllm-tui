@@ -171,6 +171,8 @@ function ModelInputView({ onConfirm, device }) {
 export function App({ bridge, config: initialConfig }) {
   const { exit } = useApp();
   const [config, setConfig] = useState(initialConfig);
+  const configRef = useRef(config);
+  configRef.current = config;
   const [focusedPane, setFocusedPane] = useState('chat'); // 'chat' | 'params' | 'telemetry'
   const [currentResponse, setCurrentResponse] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -251,7 +253,7 @@ export function App({ bridge, config: initialConfig }) {
         msg += `\n\n  More info: ${fix_url}`;
       }
       addMessage('assistant', msg);
-      const updatedConfig = { ...config, device: actual };
+      const updatedConfig = { ...configRef.current, device: actual };
       setConfig(updatedConfig);
       queueSaveConfig(updatedConfig).catch(() => {});
     }
