@@ -172,7 +172,9 @@ export function App({ bridge, config: initialConfig }) {
   const { exit } = useApp();
   const [config, setConfig] = useState(initialConfig);
   const configRef = useRef(config);
-  configRef.current = config;
+  useEffect(() => {
+    configRef.current = config;
+  }, [config]);
   const [focusedPane, setFocusedPane] = useState('chat'); // 'chat' | 'params' | 'telemetry'
   const [currentResponse, setCurrentResponse] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
